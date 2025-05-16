@@ -1,0 +1,122 @@
+package user
+
+import (
+	"context"
+	"log"
+	"time"
+	"user-management/config"
+	"user-management/response"
+
+	jwt "github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
+)
+
+type Repository interface {
+	CreateUser(ctx context.Context, user User) (string, error)
+	FindUserByEmail(ctx context.Context, email string) (User, error)
+	FindUserById(ctx context.Context, id string) (User, error)
+	FindUsers(ctx context.Context) ([]User, error)
+	UpdateUser(ctx context.Context, user User) error
+	DeleteUser(ctx context.Context, id string) (int64, error)
+}
+
+type usecase struct {
+	logger    *log.Logger
+	cfgCrypto config.CryptoCredential
+	repo      Repository
+}
+
+func NewUsecase(logger *log.Logger, cfg config.CryptoCredential, r Repository) *usecase {
+	return &usecase{
+		logger:    logger,
+		cfgCrypto: cfg,
+		repo:      r,
+	}
+}
+
+func (u *usecase) CreateUser(ctx context.Context, req User) (*response.StdResp[any], error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+	req.Password = string(hashedPassword)
+	uid, err := u.repo.CreateUser(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return response.SuccessWithData(CreateResponse{uid}), nil
+}
+
+func (u *usecase) Login(ctx context.Context, req SignInRequest) (*response.StdResp[any], error) {
+	result, err := u.repo.FindUserByEmail(ctx, req.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	if !ValidPassword(result.Password, req.Password) {
+		return response.LoginFail(), nil
+	}
+
+	expAt := time.Now().Add(u.cfgCrypto.JwtExpireDuration)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
+		jwt.RegisteredClaims{
+			Issuer:    req.Email,
+			ExpiresAt: jwt.NewNumericDate(expAt),
+		},
+	)
+
+	signedToken, err := token.SignedString([]byte(u.cfgCrypto.JwtKey))
+	if err != nil {
+		return nil, err
+	}
+	return response.SuccessWithData(&SignInResponse{
+		Token:     signedToken,
+		ExpiresAt: expAt,
+	}), err
+}
+
+func (u *usecase) FindUsers(ctx context.Context) (*response.StdResp[any], error) {
+	users, err := u.repo.FindUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return response.SuccessWithData(users), nil
+}
+
+func (u *usecase) FindUserById(ctx context.Context, id string) (*response.StdResp[any], error) {
+	user, err := u.repo.FindUserById(ctx, id)
+	if err != nil {
+		if err.Error() == UserNotFound {
+			return response.UserNotFound(), nil
+		}
+		return nil, err
+	}
+	return response.SuccessWithData(user), nil
+}
+
+func (u *usecase) UpdateUser(ctx context.Context, user User) (*response.StdResp[any], error) {
+	err := u.repo.UpdateUser(ctx, user)
+	if err != nil {
+		if err.Error() == EmailAlreadyExists {
+			return response.DuplicatedRegistration(), nil
+		}
+		return nil, err
+	}
+	return response.Success(), err
+}
+
+func (u *usecase) DeleteUser(ctx context.Context, id string) (*response.StdResp[any], error) {
+	delCount, err := u.repo.DeleteUser(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if delCount == 0 {
+		return response.UserNotFound(), nil
+	}
+	return response.Success(), nil
+}
+
+func ValidPassword(hashedPassword, plainPassword string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(plainPassword))
+	return err == nil
+}

@@ -1,0 +1,50 @@
+package middleware
+
+import (
+	"net/http"
+	"strings"
+
+	jwt "github.com/golang-jwt/jwt/v5"
+	echo "github.com/labstack/echo/v4"
+)
+
+func JWTMiddleware(secret string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			var tokenStr string
+
+			// 1. Try cookie
+			if cookie, err := c.Cookie("token"); err == nil {
+				tokenStr = cookie.Value
+			} else {
+				// 2. Try Authorization header
+				authHeader := c.Request().Header.Get("Authorization")
+				if strings.HasPrefix(authHeader, "Bearer ") {
+					tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+				}
+			}
+
+			if tokenStr == "" {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Missing JWT token")
+			}
+
+			// 3. Parse and verify token
+			token, err := jwt.ParseWithClaims(tokenStr, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, echo.NewHTTPError(http.StatusUnauthorized, "Unexpected signing method")
+				}
+				return []byte(secret), nil
+			})
+			if err != nil || !token.Valid {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
+			}
+
+			// 4. Save user info to context
+			// if claims, ok := token.Claims.(*jwt.RegisteredClaims); ok {
+			// 	c.Set("user", claims.Subject) // You can store more fields if needed
+			// }
+
+			return next(c)
+		}
+	}
+}

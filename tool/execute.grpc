@@ -1,0 +1,9 @@
+grpcurl -plaintext -d '{
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "password": "password123"
+}' localhost:50051 user.v1.UserService/CreateUser
+
+grpcurl -plaintext -d '{
+  "id": "12345"
+}' localhost:50051 user.v1.UserService/GetUser

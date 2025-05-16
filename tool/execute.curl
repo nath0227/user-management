@@ -1,0 +1,39 @@
+curl -k -L -X POST 'http://localhost:8080/login' \
+--header 'Content-Type: application/json' \
+--data '{
+    "email": "admin@example.com",
+    "password": "passwordstring"
+}'
+
+################
+curl -kv -L -X POST 'http://localhost:8080/register' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer {{{TOKEN}}}'
+--data-raw '{
+    "name": "user003",
+    "email": "user003@example.com",
+    "password": "Passw0rd"
+}'
+
+################
+curl -kv -L -X GET 'http://localhost:8080/users' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhZG1pbkBleGFtcGxlLmNvbSIsImV4cCI6MTc0NzM5Mzg0OX0.Ysc7komvpthKjzBlw1stCYHQdjzcKDhrQrJnrAkIXis' \
+
+################
+curl -kv -L -X GET 'http://localhost:8080/users/68270eb674993a91f4520e6b' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhZG1pbkBleGFtcGxlLmNvbSIsImV4cCI6MTc0NzM5Mzg0OX0.Ysc7komvpthKjzBlw1stCYHQdjzcKDhrQrJnrAkIXis' \
+
+################
+curl --location --request PUT 'http://localhost:8080/users/68272633d1fdd3bb554b6587' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhZG1pbkBleGFtcGxlLmNvbSIsImV4cCI6MTc0NzM5OTc0NH0.0KtpAE1qjU4uHnoOfS8yhOxEpCqdutrX9EVAlbn29vk' \
+--data-raw '{
+    "name": "00003user",
+    "email": "user00003@example.com"
+}'
+
+################
+curl --location --request DELETE 'http://localhost:8080/users/68270eb674993a91f4520e6b' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhZG1pbkBleGFtcGxlLmNvbSIsImV4cCI6MTc0NzM5Mzg0OX0.Ysc7komvpthKjzBlw1stCYHQdjzcKDhrQrJnrAkIXis' \
+
+################
