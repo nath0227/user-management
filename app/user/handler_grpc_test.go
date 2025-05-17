@@ -24,7 +24,7 @@ func TestGrpcHandler_CreateUser(t *testing.T) {
 		Password: "password123",
 	}
 
-	mockUc.On("CreateUser", ctx, mock.AnythingOfType("user.User")).Return(
+	mockUc.On("CreateUser", ctx, mock.AnythingOfType("user.CreateRequest")).Return(
 		response.SuccessWithData(user.CreateResponse{Id: "12345"}), nil)
 
 	resp, err := handler.CreateUser(ctx, req)
@@ -66,7 +66,7 @@ func TestGrpcHandler_CreateUser_Duplicated(t *testing.T) {
 		Password: "password123",
 	}
 
-	mockUc.On("CreateUser", ctx, mock.AnythingOfType("user.User")).Return(response.DuplicatedRegistration(), nil)
+	mockUc.On("CreateUser", ctx, mock.AnythingOfType("user.CreateRequest")).Return(response.DuplicatedRegistration(), nil)
 
 	resp, err := handler.CreateUser(ctx, req)
 	assert.NoError(t, err)
@@ -87,7 +87,7 @@ func TestGrpcHandler_CreateUser_Error(t *testing.T) {
 		Password: "password123",
 	}
 
-	mockUc.On("CreateUser", ctx, mock.AnythingOfType("user.User")).Return(&response.StdResp[any]{}, errors.New("internal error"))
+	mockUc.On("CreateUser", ctx, mock.AnythingOfType("user.CreateRequest")).Return(&response.StdResp[any]{}, errors.New("internal error"))
 
 	resp, err := handler.CreateUser(ctx, req)
 	assert.Error(t, err)
@@ -103,8 +103,8 @@ func TestGrpcHandler_GetUser(t *testing.T) {
 	ctx := context.Background()
 	oid := primitive.NewObjectID()
 	req := &usergrpc.GetUserRequest{Id: oid.Hex()}
-	mockUc.On("FindUserById", ctx, oid.Hex()).Return(response.SuccessWithData(user.User{
-		ID:    oid,
+	mockUc.On("FindUserById", ctx, oid.Hex()).Return(response.SuccessWithData(user.FindUserResponse{
+		Id:    oid.Hex(),
 		Name:  "John Doe",
 		Email: "john.doe@example.com",
 	}), nil)

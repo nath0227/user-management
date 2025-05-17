@@ -76,20 +76,20 @@ func TestRepository_FindUserById(t *testing.T) {
 			Database:       "testdb",
 			UserCollection: "users",
 		})
-
-		expectedUser := user.User{
-			ID:    primitive.NewObjectID(),
+		oid := primitive.NewObjectID()
+		expectedUser := user.FindUserResponse{
+			Id:    oid.Hex(),
 			Name:  "Test User",
 			Email: "test@example.com",
 		}
 
 		mt.AddMockResponses(mtest.CreateCursorResponse(1, "testdb.users", mtest.FirstBatch, bson.D{
-			bson.E{Key: "_id", Value: expectedUser.ID},
+			bson.E{Key: "_id", Value: expectedUser.Id},
 			bson.E{Key: "name", Value: expectedUser.Name},
 			bson.E{Key: "email", Value: expectedUser.Email},
 		}))
 
-		result, err := repo.FindUserById(context.Background(), expectedUser.ID.Hex())
+		result, err := repo.FindUserById(context.Background(), expectedUser.Id)
 
 		assert.NoError(t, err)
 		assert.Equal(t, expectedUser, result)
@@ -105,24 +105,25 @@ func TestRepository_FindUsers(t *testing.T) {
 			Database:       "testdb",
 			UserCollection: "users",
 		})
-
-		expectedUsers := []user.User{
-			{ID: primitive.NewObjectID(), Name: "User1", Email: "user1@example.com"},
-			{ID: primitive.NewObjectID(), Name: "User2", Email: "user2@example.com"},
+		oid1 := primitive.NewObjectID()
+		oid2 := primitive.NewObjectID()
+		expectedUsers := []user.FindUserResponse{
+			{Id: oid1.Hex(), Name: "User1", Email: "user1@example.com"},
+			{Id: oid2.Hex(), Name: "User2", Email: "user2@example.com"},
 		}
 
 		// Add mock responses for the cursor
 		mt.AddMockResponses(
 			mtest.CreateCursorResponse(1, "testdb.users", mtest.FirstBatch,
 				bson.D{
-					bson.E{Key: "_id", Value: expectedUsers[0].ID},
+					bson.E{Key: "_id", Value: expectedUsers[0].Id},
 					bson.E{Key: "name", Value: expectedUsers[0].Name},
 					bson.E{Key: "email", Value: expectedUsers[0].Email},
 				},
 			),
 			mtest.CreateCursorResponse(0, "testdb.users", mtest.NextBatch,
 				bson.D{
-					bson.E{Key: "_id", Value: expectedUsers[1].ID},
+					bson.E{Key: "_id", Value: expectedUsers[1].Id},
 					bson.E{Key: "name", Value: expectedUsers[1].Name},
 					bson.E{Key: "email", Value: expectedUsers[1].Email},
 				},
@@ -188,7 +189,7 @@ func TestRepository_UpdateUser(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Equal(t, int64(0), count)
-		assert.Equal(t, user.EmailAlreadyExists, err.Error())
+		assert.Equal(t, user.ErrEmailAlreadyExists, err)
 	})
 }
 
@@ -246,7 +247,7 @@ func TestRepository_CountUsers(t *testing.T) {
 			"test.users",
 			mtest.FirstBatch,
 			bson.D{
-				bson.E{"n", int64(3)},
+				bson.E{Key: "n", Value: int64(3)},
 			},
 		))
 
@@ -265,8 +266,8 @@ func TestRepository_CountUsers(t *testing.T) {
 
 		// Mock an error response
 		mt.AddMockResponses(bson.D{
-			{Key: "ok", Value: 0},
-			{Key: "errmsg", Value: "count error"},
+			bson.E{Key: "ok", Value: 0},
+			bson.E{Key: "errmsg", Value: "count error"},
 		})
 
 		count, err := repo.CountUsers(context.Background())

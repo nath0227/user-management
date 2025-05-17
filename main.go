@@ -13,10 +13,12 @@ import (
 	"user-management/app/user"
 	usergrpc "user-management/app/user/grpc/gen/go/user/v1"
 	"user-management/config"
+	"user-management/logger"
 	"user-management/middleware"
 	"user-management/storage"
 
 	echo "github.com/labstack/echo/v4"
+	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	"google.golang.org/grpc"
 )
 
@@ -27,13 +29,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	zlog := logger.NewZap()
+	if err != nil {
+		panic(err)
+	}
+	defer zlog.Sync()
 
 	mongo := storage.InitMongoConnection(ctx, cfg.MongoDB)
 	defer mongo.Disconnect(ctx)
 
 	repo := user.NewRepository(mongo, cfg.MongoDB)
-	uc := user.NewUsecase(log.Default(), cfg.Crypto, repo)
-	handler := user.NewHandler(log.Default(), uc)
+	uc := user.NewUsecase(cfg.Crypto, repo)
+	handler := user.NewHandler(uc)
 
 	go startRestServer(ctx, handler, cfg)
 	// Start gRPC server
@@ -64,6 +71,9 @@ func countTotalUser(ctx context.Context, repo user.CountUsersRepository) {
 func startRestServer(ctx context.Context, handler user.Handler, cfg *config.AppConfig) {
 	server := echo.New()
 	defer server.Shutdown(ctx)
+	server.Use(echoMiddleware.Recover())
+	server.Use(middleware.HealthCheck)
+	server.Use(middleware.NewLogging)
 	server.Use(middleware.LoggingMiddleware)
 	server.POST("/login", handler.Login)
 
@@ -89,7 +99,11 @@ func startRestServer(ctx context.Context, handler user.Handler, cfg *config.AppC
 func startGrpcServer(usecase user.Usecase, cfg *config.AppConfig) {
 	grpcHandler := user.NewGrpcHandler(usecase)
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(
+			middleware.UnaryLoggingInterceptor(),
+		),
+	)
 
 	usergrpc.RegisterUserServiceServer(grpcServer, grpcHandler)
 

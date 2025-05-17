@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"time"
 	usergrpc "user-management/app/user/grpc/gen/go/user/v1"
 	"user-management/response"
 )
@@ -15,7 +16,7 @@ func NewGrpcHandler(u Usecase) *GrpcHandler {
 }
 
 func (h *GrpcHandler) CreateUser(ctx context.Context, req *usergrpc.CreateUserRequest) (*usergrpc.CreateUserResponse, error) {
-	request := User{
+	request := CreateRequest{
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: req.Password,
@@ -72,14 +73,15 @@ func (h *GrpcHandler) GetUser(ctx context.Context, req *usergrpc.GetUserRequest)
 		}, nil
 	}
 
-	user := resp.Data.(User)
+	user := resp.Data.(FindUserResponse)
 	return &usergrpc.GetUserResponse{
 		Code:    response.Success().Code,
 		Message: response.Success().Message,
 		Data: &usergrpc.GetUserResponse_Data{
-			Id:    user.ID.Hex(),
+			Id:    user.Id,
 			Name:  user.Name,
 			Email: user.Email,
+			CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil
 }

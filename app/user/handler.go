@@ -2,8 +2,8 @@ package user
 
 import (
 	"context"
-	"log"
 	"net/http"
+	"user-management/logger"
 	"user-management/response"
 
 	echo "github.com/labstack/echo/v4"
@@ -11,7 +11,7 @@ import (
 )
 
 type Usecase interface {
-	CreateUser(ctx context.Context, req User) (*response.StdResp[any], error)
+	CreateUser(ctx context.Context, req CreateRequest) (*response.StdResp[any], error)
 	Login(ctx context.Context, req SignInRequest) (*response.StdResp[any], error)
 	FindUsers(ctx context.Context) (*response.StdResp[any], error)
 	FindUserById(ctx context.Context, id string) (*response.StdResp[any], error)
@@ -29,23 +29,25 @@ type Handler interface {
 }
 
 type handler struct {
-	logger  *log.Logger
 	usecase Usecase
 }
 
-func NewHandler(logger *log.Logger, u Usecase) *handler {
+func NewHandler(u Usecase) *handler {
 	return &handler{
-		logger:  logger,
 		usecase: u,
 	}
 }
 
 func (h *handler) Login(c echo.Context) error {
 	ctx := c.Request().Context()
-	var request SignInRequest
-	err := c.Bind(&request)
+	zlog, err := logger.FromContext(ctx)
 	if err != nil {
-		h.logger.Println("[Handler] Bind request error:", err.Error())
+		return c.JSON(response.InternalServerError().WithHTTPStatus())
+	}
+	var request SignInRequest
+	err = c.Bind(&request)
+	if err != nil {
+		zlog.Sugar().Infof("[Handler] Bind request error: %v", err)
 		return c.JSON(response.UnexpectedRequest().WithHTTPStatus())
 	}
 
@@ -54,7 +56,7 @@ func (h *handler) Login(c echo.Context) error {
 	}
 	sr, err := h.usecase.Login(ctx, request)
 	if err != nil {
-		h.logger.Println("[Handler] Service error:", err.Error())
+		zlog.Sugar().Infof("[Handler] Service error: %v", err.Error())
 		return c.JSON(response.InternalServerError().WithHTTPStatus())
 	}
 	if !sr.IsSuccess() {
@@ -67,10 +69,14 @@ func (h *handler) Login(c echo.Context) error {
 
 func (h *handler) CreateUser(c echo.Context) error {
 	ctx := c.Request().Context()
-	var request User
-	err := c.Bind(&request)
+	zlog, err := logger.FromContext(ctx)
 	if err != nil {
-		h.logger.Println("[Handler] Bind request error:", err.Error())
+		return c.JSON(response.InternalServerError().WithHTTPStatus())
+	}
+	var request CreateRequest
+	err = c.Bind(&request)
+	if err != nil {
+		zlog.Sugar().Infof("[Handler] Bind request error: %v", err.Error())
 		return c.JSON(response.UnexpectedRequest().WithHTTPStatus())
 	}
 
@@ -80,7 +86,7 @@ func (h *handler) CreateUser(c echo.Context) error {
 
 	resp, err := h.usecase.CreateUser(ctx, request)
 	if err != nil {
-		h.logger.Println("[Handler] Service error:", err.Error())
+		zlog.Sugar().Infof("[Handler] Service error: %v", err.Error())
 		return c.JSON(response.InternalServerError().WithHTTPStatus())
 	}
 
@@ -89,9 +95,13 @@ func (h *handler) CreateUser(c echo.Context) error {
 
 func (h *handler) FindUsers(c echo.Context) error {
 	ctx := c.Request().Context()
+	zlog, err := logger.FromContext(ctx)
+	if err != nil {
+		return c.JSON(response.InternalServerError().WithHTTPStatus())
+	}
 	resp, err := h.usecase.FindUsers(ctx)
 	if err != nil {
-		h.logger.Println("[Handler] Service error:", err.Error())
+		zlog.Sugar().Infof("[Handler] Service error: %v", err.Error())
 		return c.JSON(response.InternalServerError().WithHTTPStatus())
 	}
 	return c.JSON(resp.WithHTTPStatus())
@@ -99,6 +109,10 @@ func (h *handler) FindUsers(c echo.Context) error {
 
 func (h *handler) FindUserById(c echo.Context) error {
 	ctx := c.Request().Context()
+	zlog, err := logger.FromContext(ctx)
+	if err != nil {
+		return c.JSON(response.InternalServerError().WithHTTPStatus())
+	}
 	paramId := c.Param(ParamID)
 	if respValidate := IdValidation(paramId); !respValidate.IsSuccess() {
 		return c.JSON(response.InvalidData(ParamID).WithHTTPStatus())
@@ -106,7 +120,7 @@ func (h *handler) FindUserById(c echo.Context) error {
 
 	resp, err := h.usecase.FindUserById(ctx, paramId)
 	if err != nil {
-		h.logger.Println("[Handler] Service error:", err.Error())
+		zlog.Sugar().Infof("[Handler] Service error: %v", err.Error())
 		return c.JSON(response.InternalServerError().WithHTTPStatus())
 	}
 	return c.JSON(resp.WithHTTPStatus())
@@ -114,6 +128,10 @@ func (h *handler) FindUserById(c echo.Context) error {
 
 func (h *handler) UpdateUser(c echo.Context) error {
 	ctx := c.Request().Context()
+	zlog, err := logger.FromContext(ctx)
+	if err != nil {
+		return c.JSON(response.InternalServerError().WithHTTPStatus())
+	}
 	var request UpdateRequest
 	paramId := c.Param(ParamID)
 	userID, err := primitive.ObjectIDFromHex(paramId)
@@ -122,7 +140,7 @@ func (h *handler) UpdateUser(c echo.Context) error {
 	}
 	err = c.Bind(&request)
 	if err != nil {
-		h.logger.Println("[Handler] Bind request error:", err.Error())
+		zlog.Sugar().Infof("[Handler] Bind request error: %v", err)
 		return c.JSON(response.UnexpectedRequest().WithHTTPStatus())
 	}
 
@@ -136,7 +154,7 @@ func (h *handler) UpdateUser(c echo.Context) error {
 		Email: request.Email,
 	})
 	if err != nil {
-		h.logger.Println("[Handler] Service error:", err.Error())
+		zlog.Sugar().Infof("[Handler] Service error: %v", err.Error())
 		return c.JSON(response.InternalServerError().WithHTTPStatus())
 	}
 	return c.JSON(resp.WithHTTPStatus())
@@ -144,6 +162,10 @@ func (h *handler) UpdateUser(c echo.Context) error {
 
 func (h *handler) DeleteUser(c echo.Context) error {
 	ctx := c.Request().Context()
+	zlog, err := logger.FromContext(ctx)
+	if err != nil {
+		return c.JSON(response.InternalServerError().WithHTTPStatus())
+	}
 	paramId := c.Param(ParamID)
 	if respValidate := IdValidation(paramId); !respValidate.IsSuccess() {
 		return c.JSON(response.InvalidData(ParamID).WithHTTPStatus())
@@ -151,7 +173,7 @@ func (h *handler) DeleteUser(c echo.Context) error {
 
 	resp, err := h.usecase.DeleteUser(ctx, paramId)
 	if err != nil {
-		h.logger.Println("[Handler] Service error:", err.Error())
+		zlog.Sugar().Infof("[Handler] Service error: %v", err.Error())
 		return c.JSON(response.InternalServerError().WithHTTPStatus())
 	}
 	return c.JSON(resp.WithHTTPStatus())

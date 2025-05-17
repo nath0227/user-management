@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func (r User) RequestValidation() *response.StdResp[any] {
+func (r CreateRequest) RequestValidation() *response.StdResp[any] {
 	if checkLen(r.Name) == 0 {
 		return response.MandatoryMissing("name")
 	}

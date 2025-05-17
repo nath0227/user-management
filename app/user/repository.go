@@ -2,7 +2,6 @@ package user
 
 import (
 	"context"
-	"errors"
 	"log"
 	"time"
 	"user-management/config"
@@ -35,7 +34,7 @@ func (r *repository) CreateUser(ctx context.Context, user User) (string, error) 
 	ior, err := r.mc.Collection(r.cfg.UserCollection).InsertOne(ctx, user)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
-			return "", errors.New(EmailAlreadyExists)
+			return "", ErrEmailAlreadyExists
 		}
 		return "", err
 	}
@@ -47,15 +46,15 @@ func (r *repository) FindUserByEmail(ctx context.Context, email string) (User, e
 	err := r.mc.Collection(r.cfg.UserCollection).FindOne(ctx, bson.M{"email": email}).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return user, errors.New(UserOrPasswordIsWrong)
+			return user, ErrUserOrPasswordIsWrong
 		}
 		return user, err
 	}
 	return user, err
 }
 
-func (r *repository) FindUserById(ctx context.Context, id string) (User, error) {
-	var user User
+func (r *repository) FindUserById(ctx context.Context, id string) (FindUserResponse, error) {
+	var user FindUserResponse
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return user, err
@@ -63,26 +62,21 @@ func (r *repository) FindUserById(ctx context.Context, id string) (User, error) 
 	err = r.mc.Collection(r.cfg.UserCollection).FindOne(ctx, bson.M{"_id": oid}).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return user, errors.New(UserNotFound)
+			return user, ErrUserNotFound
 		}
 		return user, err
 	}
 	return user, err
 }
 
-func (r *repository) FindUsers(ctx context.Context) ([]User, error) {
-	sort := bson.D{
-		bson.E{
-			Key:   "created_at",
-			Value: 1,
-		},
-	}
+func (r *repository) FindUsers(ctx context.Context) ([]FindUserResponse, error) {
+	sort := bson.D{bson.E{Key: "created_at", Value: 1},}
 	opts := options.Find().SetSort(sort)
 	cursor, err := r.mc.Collection(r.cfg.UserCollection).Find(ctx, bson.M{}, opts)
 	if err != nil {
 		return nil, err
 	}
-	var users []User
+	var users []FindUserResponse
 	err = cursor.All(ctx, &users)
 	return users, err
 }
@@ -99,7 +93,7 @@ func (r *repository) UpdateUser(ctx context.Context, user User) (int64, error) {
 	result, err := r.mc.Collection(r.cfg.UserCollection).UpdateByID(ctx, user.ID, update)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
-			return 0, errors.New(EmailAlreadyExists)
+			return 0, ErrEmailAlreadyExists
 		}
 		return 0, err
 	}

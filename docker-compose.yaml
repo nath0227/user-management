@@ -13,6 +13,7 @@ services:
       - MONGO_INITDB_DATABASE=myapp
       - MONGO_INITDB_ROOT_USERNAME=root
       - MONGO_INITDB_ROOT_PASSWORD=root
+      - TZ=Asia/Bangkok # Set timezone to Bangkok
     networks:
       - appnet
 
@@ -26,6 +27,7 @@ services:
       - mongo
     ports:
       - "8080:8080"
+      - "50051:50051"
     environment:
       MONGO_URI: mongodb://%s:%s@mongo:27017/%s?authSource=admin
     networks:

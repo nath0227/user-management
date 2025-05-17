@@ -39,11 +39,6 @@ func JWTMiddleware(secret string) echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
 			}
 
-			// 4. Save user info to context
-			// if claims, ok := token.Claims.(*jwt.RegisteredClaims); ok {
-			// 	c.Set("user", claims.Subject) // You can store more fields if needed
-			// }
-
 			return next(c)
 		}
 	}
