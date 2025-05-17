@@ -16,7 +16,7 @@ type Repository interface {
 	FindUserByEmail(ctx context.Context, email string) (User, error)
 	FindUserById(ctx context.Context, id string) (User, error)
 	FindUsers(ctx context.Context) ([]User, error)
-	UpdateUser(ctx context.Context, user User) error
+	UpdateUser(ctx context.Context, user User) (int64, error)
 	DeleteUser(ctx context.Context, id string) (int64, error)
 }
 
@@ -42,6 +42,9 @@ func (u *usecase) CreateUser(ctx context.Context, req User) (*response.StdResp[a
 	req.Password = string(hashedPassword)
 	uid, err := u.repo.CreateUser(ctx, req)
 	if err != nil {
+		if err.Error() == EmailAlreadyExists {
+			return response.DuplicatedRegistration(), nil
+		}
 		return nil, err
 	}
 	return response.SuccessWithData(CreateResponse{uid}), nil
@@ -50,6 +53,9 @@ func (u *usecase) CreateUser(ctx context.Context, req User) (*response.StdResp[a
 func (u *usecase) Login(ctx context.Context, req SignInRequest) (*response.StdResp[any], error) {
 	result, err := u.repo.FindUserByEmail(ctx, req.Email)
 	if err != nil {
+		if err.Error() == UserOrPasswordIsWrong {
+			return response.LoginFail(), nil
+		}
 		return nil, err
 	}
 
@@ -95,12 +101,15 @@ func (u *usecase) FindUserById(ctx context.Context, id string) (*response.StdRes
 }
 
 func (u *usecase) UpdateUser(ctx context.Context, user User) (*response.StdResp[any], error) {
-	err := u.repo.UpdateUser(ctx, user)
+	updateCount, err := u.repo.UpdateUser(ctx, user)
 	if err != nil {
 		if err.Error() == EmailAlreadyExists {
 			return response.DuplicatedRegistration(), nil
 		}
 		return nil, err
+	}
+	if updateCount == 0 {
+		return response.UserNotFound(), nil
 	}
 	return response.Success(), err
 }

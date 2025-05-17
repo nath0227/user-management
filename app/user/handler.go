@@ -55,9 +55,6 @@ func (h *handler) Login(c echo.Context) error {
 	sr, err := h.usecase.Login(ctx, request)
 	if err != nil {
 		h.logger.Println("[Handler] Service error:", err.Error())
-		if err.Error() == UserOrPasswordIsWrong {
-			return c.JSON(response.LoginFail().WithHTTPStatus())
-		}
 		return c.JSON(response.InternalServerError().WithHTTPStatus())
 	}
 	if !sr.IsSuccess() {
@@ -65,7 +62,6 @@ func (h *handler) Login(c echo.Context) error {
 	}
 
 	c.SetCookie(newCookie(sr.Data.(*SignInResponse)))
-	// return c.JSON(response.Success().WithHTTPStatus())
 	return c.JSON(response.SuccessWithData(sr).WithHTTPStatus())
 }
 
@@ -85,9 +81,6 @@ func (h *handler) CreateUser(c echo.Context) error {
 	resp, err := h.usecase.CreateUser(ctx, request)
 	if err != nil {
 		h.logger.Println("[Handler] Service error:", err.Error())
-		if err.Error() == EmailAlreadyExists {
-			return c.JSON(response.DuplicatedRegistration().WithHTTPStatus())
-		}
 		return c.JSON(response.InternalServerError().WithHTTPStatus())
 	}
 
@@ -125,7 +118,7 @@ func (h *handler) UpdateUser(c echo.Context) error {
 	paramId := c.Param(ParamID)
 	userID, err := primitive.ObjectIDFromHex(paramId)
 	if err != nil {
-		return c.JSON(response.LoginFail().WithHTTPStatus())
+		return c.JSON(response.InvalidData(ParamID).WithHTTPStatus())
 	}
 	err = c.Bind(&request)
 	if err != nil {

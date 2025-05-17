@@ -43,9 +43,9 @@ func (m *mockRepo) FindUsers(ctx context.Context) ([]user.User, error) {
 	return args.Get(0).([]user.User), args.Error(1)
 }
 
-func (m *mockRepo) UpdateUser(ctx context.Context, user user.User) error {
+func (m *mockRepo) UpdateUser(ctx context.Context, user user.User) (int64, error) {
 	args := m.Called(ctx, user)
-	return args.Error(0)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 func (m *mockRepo) DeleteUser(ctx context.Context, id string) (int64, error) {
@@ -76,6 +76,22 @@ func TestUsecaseCreateUser(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
+func TestUsecaseCreateUser_DuplicatedRegistration(t *testing.T) {
+	repo := new(mockRepo)
+	uc := newUsecaseWithMock(repo)
+
+	input := user.User{Name: "Test", Email: "test@example.com", Password: "pass123"}
+	repo.On("CreateUser", mock.Anything, mock.MatchedBy(func(u user.User) bool {
+		return u.Email == input.Email
+	})).Return("", errors.New(user.EmailAlreadyExists))
+
+	resp, err := uc.CreateUser(context.Background(), input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, response.DuplicatedRegistration(), resp)
+	repo.AssertExpectations(t)
+}
+
 func TestUsecaseLoginSuccess(t *testing.T) {
 	repo := new(mockRepo)
 	uc := newUsecaseWithMock(repo)
@@ -97,6 +113,21 @@ func TestUsecaseLoginSuccess(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.True(t, parsed.Valid)
+	repo.AssertExpectations(t)
+}
+
+func TestUsecaseLogin_Fail(t *testing.T) {
+	repo := new(mockRepo)
+	uc := newUsecaseWithMock(repo)
+	repo.On("FindUserByEmail", mock.Anything, "test@example.com").Return(user.User{}, errors.New(user.UserOrPasswordIsWrong))
+
+	resp, err := uc.Login(context.Background(), user.SignInRequest{
+		Email:    "test@example.com",
+		Password: "pass123",
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, response.LoginFail(), resp)
 	repo.AssertExpectations(t)
 }
 
@@ -151,7 +182,7 @@ func TestUsecaseUpdateUser(t *testing.T) {
 	uc := newUsecaseWithMock(repo)
 
 	input := user.User{ID: primitive.NewObjectID(), Name: "Updated Name"}
-	repo.On("UpdateUser", mock.Anything, input).Return(nil)
+	repo.On("UpdateUser", mock.Anything, input).Return(int64(1), nil)
 
 	resp, err := uc.UpdateUser(context.Background(), input)
 
@@ -160,12 +191,26 @@ func TestUsecaseUpdateUser(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
+func TestUsecaseUpdateUser_NotFound(t *testing.T) {
+	repo := new(mockRepo)
+	uc := newUsecaseWithMock(repo)
+
+	input := user.User{ID: primitive.NewObjectID(), Name: "Updated Name"}
+	repo.On("UpdateUser", mock.Anything, input).Return(int64(0), nil)
+
+	resp, err := uc.UpdateUser(context.Background(), input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, response.UserNotFound(), resp)
+	repo.AssertExpectations(t)
+}
+
 func TestUsecaseUpdateUser_DuplicatedEmail(t *testing.T) {
 	repo := new(mockRepo)
 	uc := newUsecaseWithMock(repo)
 
 	input := user.User{ID: primitive.NewObjectID(), Email: "duplicate@example.com", Name: "Updated Name"}
-	repo.On("UpdateUser", mock.Anything, input).Return(errors.New(user.EmailAlreadyExists))
+	repo.On("UpdateUser", mock.Anything, input).Return(int64(0), errors.New(user.EmailAlreadyExists))
 
 	resp, err := uc.UpdateUser(context.Background(), input)
 

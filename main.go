@@ -28,7 +28,7 @@ func main() {
 		panic(err)
 	}
 
-	mongo := storage.NewMongoConnection(ctx, cfg.MongoDB)
+	mongo := storage.InitMongoConnection(ctx, cfg.MongoDB)
 	defer mongo.Disconnect(ctx)
 
 	repo := user.NewRepository(mongo, cfg.MongoDB)
@@ -37,7 +37,7 @@ func main() {
 
 	go startRestServer(ctx, handler, cfg)
 	// Start gRPC server
-	go startGrpcServer(repo, cfg)
+	go startGrpcServer(uc, cfg)
 
 	go countTotalUser(ctx, repo)
 
@@ -86,11 +86,11 @@ func startRestServer(ctx context.Context, handler user.Handler, cfg *config.AppC
 
 }
 
-func startGrpcServer(repo user.Repository, cfg *config.AppConfig) {
-	usecase := user.NewUsecase(log.Default(), cfg.Crypto, repo)
+func startGrpcServer(usecase user.Usecase, cfg *config.AppConfig) {
 	grpcHandler := user.NewGrpcHandler(usecase)
 
 	grpcServer := grpc.NewServer()
+
 	usergrpc.RegisterUserServiceServer(grpcServer, grpcHandler)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GrpcServer.Port))
