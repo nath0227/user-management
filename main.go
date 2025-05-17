@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -19,6 +18,7 @@ import (
 
 	echo "github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -42,11 +42,11 @@ func main() {
 	uc := user.NewUsecase(cfg.Crypto, repo)
 	handler := user.NewHandler(uc)
 
-	go startRestServer(ctx, handler, cfg)
+	go startRestServer(ctx, zlog, handler, cfg)
 	// Start gRPC server
-	go startGrpcServer(uc, cfg)
+	go startGrpcServer(uc, zlog, cfg)
 
-	go countTotalUser(ctx, repo)
+	go countTotalUserIntervalTicker(ctx, zlog, repo, cfg.UserCountInterval)
 
 	// =================================== //
 	sigterm := make(chan os.Signal, 1)
@@ -54,21 +54,29 @@ func main() {
 
 	select {
 	case <-ctx.Done():
-		log.Println("terminating: context cancelled")
+		zlog.Error("terminating: context cancelled")
 	case <-sigterm:
-		log.Println("terminating: via signal")
+		zlog.Error("terminating: via signal")
 	}
 }
 
-func countTotalUser(ctx context.Context, repo user.CountUsersRepository) {
+func countTotalUserIntervalTicker(ctx context.Context, zlog *zap.Logger, repo user.CountUsersRepository, internval time.Duration) {
+	ticker := time.NewTicker(internval)
+	defer ticker.Stop()
 	for {
-		time.Sleep(10 * time.Second)
-		count, _ := repo.CountUsers(ctx)
-		log.Printf("User count: %d", count)
+		select {
+		case <-ticker.C:
+			count, err := repo.CountUsers(ctx)
+			if err != nil {
+				zlog.Sugar().Errorf("Error getting user count: %v", err)
+			} else {
+				zlog.Sugar().Infof("Current number of users: %d", count)
+			}
+		}
 	}
 }
 
-func startRestServer(ctx context.Context, handler user.Handler, cfg *config.AppConfig) {
+func startRestServer(ctx context.Context, zlog *zap.Logger, handler user.Handler, cfg *config.AppConfig) {
 	server := echo.New()
 	defer server.Shutdown(ctx)
 	server.Use(echoMiddleware.Recover())
@@ -77,7 +85,7 @@ func startRestServer(ctx context.Context, handler user.Handler, cfg *config.AppC
 	server.Use(middleware.LoggingMiddleware)
 	server.POST("/login", handler.Login)
 
-	g := server.Group("", middleware.JWTMiddleware(cfg.Crypto.JwtKey))
+	g := server.Group("", middleware.AuthMiddleware(cfg.Crypto.JwtKey))
 	//CreateUser
 	g.POST("/register", handler.CreateUser)
 	// FindUsers
@@ -91,17 +99,18 @@ func startRestServer(ctx context.Context, handler user.Handler, cfg *config.AppC
 
 	err := server.Start(fmt.Sprintf(":%s", cfg.HttpServer.Port))
 	if err != nil && err != http.ErrServerClosed {
-		log.Panicf("start http server error: %v", err)
+		zlog.Sugar().Panicf("start http server error: %v", err)
 	}
 
 }
 
-func startGrpcServer(usecase user.Usecase, cfg *config.AppConfig) {
+func startGrpcServer(usecase user.Usecase, zlog *zap.Logger, cfg *config.AppConfig) {
 	grpcHandler := user.NewGrpcHandler(usecase)
 
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(
+		grpc.ChainUnaryInterceptor(
 			middleware.UnaryLoggingInterceptor(),
+			middleware.GrpcAuthInterceptor(cfg.Crypto.JwtKey),
 		),
 	)
 
@@ -109,11 +118,11 @@ func startGrpcServer(usecase user.Usecase, cfg *config.AppConfig) {
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GrpcServer.Port))
 	if err != nil {
-		log.Fatalf("Failed to listen on port %s: %v\n", cfg.GrpcServer.Port, err)
+		zlog.Sugar().Fatalf("Failed to listen on port %s: %v", cfg.GrpcServer.Port, err)
 	}
 
-	log.Printf("Starting gRPC server on port %s...\n", cfg.GrpcServer.Port)
+	zlog.Sugar().Infof("Starting gRPC server on port %s...", cfg.GrpcServer.Port)
 	if err := grpcServer.Serve(listener); err != nil {
-		log.Fatalf("Failed to serve gRPC server: %v", err)
+		zlog.Sugar().Fatalf("Failed to serve gRPC server: %v", err)
 	}
 }

@@ -2,7 +2,6 @@ package user
 
 import (
 	"context"
-	"log"
 	"time"
 	"user-management/config"
 	"user-management/storage"
@@ -70,7 +69,7 @@ func (r *repository) FindUserById(ctx context.Context, id string) (FindUserRespo
 }
 
 func (r *repository) FindUsers(ctx context.Context) ([]FindUserResponse, error) {
-	sort := bson.D{bson.E{Key: "created_at", Value: 1},}
+	sort := bson.D{bson.E{Key: "created_at", Value: 1}}
 	opts := options.Find().SetSort(sort)
 	cursor, err := r.mc.Collection(r.cfg.UserCollection).Find(ctx, bson.M{}, opts)
 	if err != nil {
@@ -97,7 +96,6 @@ func (r *repository) UpdateUser(ctx context.Context, user User) (int64, error) {
 		}
 		return 0, err
 	}
-	log.Printf("result: %+v", result)
 	return result.MatchedCount, nil
 }
 

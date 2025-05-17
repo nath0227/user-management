@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 )
 
@@ -20,7 +21,12 @@ func UnaryLoggingInterceptor() grpc.UnaryServerInterceptor {
 	) (interface{}, error) {
 		start := time.Now()
 		zlog := logger.NewZap().With(zap.String("request_id", uuid.New().String()))
+		md, ok := metadata.FromIncomingContext(ctx)
+		if ok {
 
+		} else {
+			zlog.Info("No gRPC metadata received")
+		}
 		// Get peer info
 		p, _ := peer.FromContext(ctx)
 
@@ -29,6 +35,7 @@ func UnaryLoggingInterceptor() grpc.UnaryServerInterceptor {
 
 		zlog.Info("gRPC request",
 			zap.String("method", info.FullMethod),
+			zap.Any("metadata", md),
 			zap.Any("request", req),
 			zap.Any("response", resp),
 			zap.String("peer", p.Addr.String()),

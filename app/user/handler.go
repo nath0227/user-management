@@ -136,6 +136,7 @@ func (h *handler) UpdateUser(c echo.Context) error {
 	paramId := c.Param(ParamID)
 	userID, err := primitive.ObjectIDFromHex(paramId)
 	if err != nil {
+		zlog.Sugar().Infof("[Handler] Param id parsing error: %v", err.Error())
 		return c.JSON(response.InvalidData(ParamID).WithHTTPStatus())
 	}
 	err = c.Bind(&request)

@@ -14,6 +14,7 @@ const (
 	loginFail              = "4003"
 	invalidData            = "4004"
 	userNotFound           = "4005"
+	invalidAuthToken       = "4006"
 	internalServerError    = "5000"
 )
 
@@ -25,6 +26,7 @@ var message = map[string]string{
 	loginFail:              "Login fail",
 	invalidData:            "%s is invalid data",
 	userNotFound:           "User not found",
+	invalidAuthToken:       "Invalid authentication token",
 	internalServerError:    "Internal server error",
 }
 
@@ -36,6 +38,7 @@ var mapHTTPStatus = map[string]int{
 	loginFail:              http.StatusBadRequest,
 	invalidData:            http.StatusBadRequest,
 	userNotFound:           http.StatusNotFound,
+	invalidAuthToken:       http.StatusUnauthorized,
 	internalServerError:    http.StatusInternalServerError,
 }
 
@@ -107,6 +110,13 @@ func InvalidData(field string) *StdResp[any] {
 	return &StdResp[any]{
 		Code:    invalidData,
 		Message: fmt.Sprintf(message[invalidData], field),
+	}
+}
+
+func Unauthorized() *StdResp[any] {
+	return &StdResp[any]{
+		Code:    invalidAuthToken,
+		Message: message[invalidAuthToken],
 	}
 }
 

@@ -3,12 +3,13 @@ package middleware
 import (
 	"net/http"
 	"strings"
+	"user-management/response"
 
 	jwt "github.com/golang-jwt/jwt/v5"
 	echo "github.com/labstack/echo/v4"
 )
 
-func JWTMiddleware(secret string) echo.MiddlewareFunc {
+func AuthMiddleware(secret string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			var tokenStr string
@@ -25,7 +26,7 @@ func JWTMiddleware(secret string) echo.MiddlewareFunc {
 			}
 
 			if tokenStr == "" {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Missing JWT token")
+				return echo.NewHTTPError(response.Unauthorized().WithHTTPStatus())
 			}
 
 			// 3. Parse and verify token
@@ -36,7 +37,7 @@ func JWTMiddleware(secret string) echo.MiddlewareFunc {
 				return []byte(secret), nil
 			})
 			if err != nil || !token.Valid {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
+				return echo.NewHTTPError(response.Unauthorized().WithHTTPStatus())
 			}
 
 			return next(c)

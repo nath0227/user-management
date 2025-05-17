@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"log"
+	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -15,6 +17,7 @@ const (
 
 func NewZap() *zap.Logger {
 	config := zap.NewProductionConfig()
+	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
 	logger, err := config.Build(zap.AddCaller())
 	if err != nil {
 		log.Fatal(err)
