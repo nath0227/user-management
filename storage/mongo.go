@@ -3,8 +3,8 @@ package storage
 import (
 	"context"
 	"fmt"
-	"log"
 	"user-management/config"
+	"user-management/logger"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -37,23 +37,26 @@ func NewMongoConn(client *mongo.Client, database *mongo.Database) *MongoConn {
 }
 
 func InitMongoConnection(ctx context.Context, cfg config.MongoConfig) *MongoConn {
+	zlog := logger.NewZap()
+
 	uri := fmt.Sprintf(cfg.Uri, cfg.Username, cfg.Password, cfg.Database)
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
-		log.Fatal(err)
+		zlog.Fatal(err.Error())
 	}
 	if err := client.Ping(ctx, nil); err != nil {
-		log.Fatal(err)
+		zlog.Fatal(err.Error())
 	}
 
 	return NewMongoConn(client, client.Database(cfg.Database))
 }
 
 func (m *MongoConn) Disconnect(ctx context.Context) {
+	zlog := logger.NewZap()
 	if err := m.client.Disconnect(ctx); err != nil {
-		log.Println("Error disconnecting MongoDB:", err)
+		zlog.Sugar().Errorf("Error disconnecting MongoDB:", err)
 	} else {
-		log.Println("MongoDB connection closed.")
+		zlog.Info("MongoDB connection closed.")
 	}
 }
 

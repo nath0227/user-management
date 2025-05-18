@@ -2,24 +2,17 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 	"user-management/app/user"
-	usergrpc "user-management/app/user/grpc/gen/go/user/v1"
 	"user-management/config"
 	"user-management/logger"
-	"user-management/middleware"
+	"user-management/server"
 	"user-management/storage"
 
-	echo "github.com/labstack/echo/v4"
-	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 )
 
 func main() {
@@ -42,22 +35,27 @@ func main() {
 	uc := user.NewUsecase(cfg.Crypto, repo)
 	handler := user.NewHandler(uc)
 
-	go startRestServer(ctx, zlog, handler, cfg)
+	grpcServer, err := server.NewGRPCServer(uc, zlog, cfg)
+	if err != nil {
+		panic(err)
+	}
+	httpServer := server.NewEchoHTTPServer(ctx, zlog, handler, cfg)
+	// Start HTTP server
+	go httpServer.Start()
 	// Start gRPC server
-	go startGrpcServer(uc, zlog, cfg)
+	go grpcServer.Start()
 
 	go countTotalUserIntervalTicker(ctx, zlog, repo, cfg.UserCountInterval)
 
 	// =================================== //
-	sigterm := make(chan os.Signal, 1)
-	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	<-ctx.Done() // Wait for termination signal
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	select {
-	case <-ctx.Done():
-		zlog.Error("terminating: context cancelled")
-	case <-sigterm:
-		zlog.Error("terminating: via signal")
-	}
+	httpServer.Stop(shutdownCtx)
+	grpcServer.Stop(shutdownCtx)
 }
 
 func countTotalUserIntervalTicker(ctx context.Context, zlog *zap.Logger, repo user.CountUsersRepository, internval time.Duration) {
@@ -73,61 +71,5 @@ func countTotalUserIntervalTicker(ctx context.Context, zlog *zap.Logger, repo us
 				zlog.Sugar().Infof("Current number of users: %d", count)
 			}
 		}
-	}
-}
-
-func startRestServer(ctx context.Context, zlog *zap.Logger, handler user.Handler, cfg *config.AppConfig) {
-	server := echo.New()
-	defer server.Shutdown(ctx)
-	server.Use(echoMiddleware.Recover())
-	server.Use(echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{
-		AllowOrigins: []string{"*"}, // Allow all origins for development
-		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
-	}))
-	server.Use(middleware.HealthCheck)
-	server.Use(middleware.NewLogging)
-	server.Use(middleware.LoggingMiddleware)
-	server.POST("/login", handler.Login)
-
-	g := server.Group("", middleware.AuthMiddleware(cfg.Crypto.JwtKey))
-	//CreateUser
-	g.POST("/register", handler.CreateUser)
-	// FindUsers
-	g.GET("/users", handler.FindUsers)
-	// FindUserById
-	g.GET("/users/:id", handler.FindUserById)
-	// UpdateUser
-	g.PUT("/users/:id", handler.UpdateUser)
-	// DeleteUser
-	g.DELETE("/users/:id", handler.DeleteUser)
-
-	err := server.Start(fmt.Sprintf(":%s", cfg.HttpServer.Port))
-	if err != nil && err != http.ErrServerClosed {
-		zlog.Sugar().Panicf("start http server error: %v", err)
-	}
-
-}
-
-func startGrpcServer(usecase user.Usecase, zlog *zap.Logger, cfg *config.AppConfig) {
-	grpcHandler := user.NewGrpcHandler(usecase)
-
-	grpcServer := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			middleware.UnaryLoggingInterceptor(),
-			middleware.GrpcAuthInterceptor(cfg.Crypto.JwtKey),
-		),
-	)
-
-	usergrpc.RegisterUserServiceServer(grpcServer, grpcHandler)
-
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GrpcServer.Port))
-	if err != nil {
-		zlog.Sugar().Fatalf("Failed to listen on port %s: %v", cfg.GrpcServer.Port, err)
-	}
-
-	zlog.Sugar().Infof("Starting gRPC server on port %s...", cfg.GrpcServer.Port)
-	if err := grpcServer.Serve(listener); err != nil {
-		zlog.Sugar().Fatalf("Failed to serve gRPC server: %v", err)
 	}
 }
