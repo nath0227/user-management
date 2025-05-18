@@ -80,6 +80,11 @@ func startRestServer(ctx context.Context, zlog *zap.Logger, handler user.Handler
 	server := echo.New()
 	defer server.Shutdown(ctx)
 	server.Use(echoMiddleware.Recover())
+	server.Use(echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{
+		AllowOrigins: []string{"*"}, // Allow all origins for development
+		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+	}))
 	server.Use(middleware.HealthCheck)
 	server.Use(middleware.NewLogging)
 	server.Use(middleware.LoggingMiddleware)

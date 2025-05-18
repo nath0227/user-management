@@ -11,7 +11,7 @@ const (
 	unexpectedRequest      = "4000"
 	mandatoryMissing       = "4001"
 	duplicatedRegistration = "4002"
-	loginFail              = "4003"
+	loginFailed            = "4003"
 	invalidData            = "4004"
 	userNotFound           = "4005"
 	invalidAuthToken       = "4006"
@@ -23,7 +23,7 @@ var message = map[string]string{
 	unexpectedRequest:      "Unexpected request",
 	mandatoryMissing:       "%s is required",
 	duplicatedRegistration: "An email has already been used",
-	loginFail:              "Login fail",
+	loginFailed:            "Login failed",
 	invalidData:            "%s is invalid data",
 	userNotFound:           "User not found",
 	invalidAuthToken:       "Invalid authentication token",
@@ -35,7 +35,7 @@ var mapHTTPStatus = map[string]int{
 	unexpectedRequest:      http.StatusBadRequest,
 	mandatoryMissing:       http.StatusBadRequest,
 	duplicatedRegistration: http.StatusBadRequest,
-	loginFail:              http.StatusBadRequest,
+	loginFailed:            http.StatusBadRequest,
 	invalidData:            http.StatusBadRequest,
 	userNotFound:           http.StatusNotFound,
 	invalidAuthToken:       http.StatusUnauthorized,
@@ -94,8 +94,8 @@ func DuplicatedRegistration() *StdResp[any] {
 
 func LoginFail() *StdResp[any] {
 	return &StdResp[any]{
-		Code:    loginFail,
-		Message: message[loginFail],
+		Code:    loginFailed,
+		Message: message[loginFailed],
 	}
 }
 

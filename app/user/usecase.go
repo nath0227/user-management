@@ -68,7 +68,7 @@ func (u *usecase) Login(ctx context.Context, req SignInRequest) (*response.StdRe
 	expAt := time.Now().Add(u.cfgCrypto.JwtExpireDuration)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		jwt.RegisteredClaims{
-			Issuer:    req.Email,
+			Subject:   result.Email,
 			ExpiresAt: jwt.NewNumericDate(expAt),
 		},
 	)

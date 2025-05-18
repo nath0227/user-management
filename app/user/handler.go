@@ -115,7 +115,7 @@ func (h *handler) FindUserById(c echo.Context) error {
 	}
 	paramId := c.Param(ParamID)
 	if respValidate := IdValidation(paramId); !respValidate.IsSuccess() {
-		return c.JSON(response.InvalidData(ParamID).WithHTTPStatus())
+		return c.JSON(respValidate.WithHTTPStatus())
 	}
 
 	resp, err := h.usecase.FindUserById(ctx, paramId)
@@ -169,7 +169,7 @@ func (h *handler) DeleteUser(c echo.Context) error {
 	}
 	paramId := c.Param(ParamID)
 	if respValidate := IdValidation(paramId); !respValidate.IsSuccess() {
-		return c.JSON(response.InvalidData(ParamID).WithHTTPStatus())
+		return c.JSON(respValidate.WithHTTPStatus())
 	}
 
 	resp, err := h.usecase.DeleteUser(ctx, paramId)

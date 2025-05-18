@@ -60,6 +60,7 @@ func (m *MongoConn) Disconnect(ctx context.Context) {
 func (m *MongoConn) Collection(name string) CollectionInterface {
 	return &MongoCollection{coll: m.database.Collection(name)}
 }
+
 type MongoCollection struct {
 	coll *mongo.Collection
 }

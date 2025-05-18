@@ -50,7 +50,7 @@ func (r UpdateRequest) RequestValidation() *response.StdResp[any] {
 func IdValidation(id string) *response.StdResp[any] {
 	_, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		return response.LoginFail()
+		return response.InvalidData(ParamID)
 	}
 	return response.Success()
 }

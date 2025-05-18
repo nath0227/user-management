@@ -21,15 +21,13 @@ services:
     build: .
     env_file:
       - .env
-    container_name: go-app
+    container_name: app-user-management
     restart: always
     depends_on:
       - mongo
     ports:
       - "8080:8080"
       - "50051:50051"
-    environment:
-      MONGO_URI: mongodb://%s:%s@mongo:27017/%s?authSource=admin
     networks:
       - appnet
 
