@@ -157,11 +157,3 @@ docker-compose down
 2. JWT tokens are used for authentication and must be included in the `Authorization` header for protected endpoints.
 3. The `.env` file is used for configuration, and sensitive information like `JWT_SECRET` should not be hardcoded.
 4. The application runs on port `8080` for REST API and `50051` for gRPC by default, but these can be customized in the `.env` file.
-
-### Contributing
-
-Feel free to fork the repository and submit pull requests for improvements or bug fixes.
-
-### License
-
-This project is licensed under the MIT License.
