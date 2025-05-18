@@ -19,10 +19,10 @@ paths:
               properties:
                 email:
                   type: string
-                  example: john.doe@example.com
+                  example: admin@example.com
                 password:
                   type: string
-                  example: password123
+                  example: passwordstring
               required:
                 - email
                 - password

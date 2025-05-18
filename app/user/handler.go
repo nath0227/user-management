@@ -64,7 +64,7 @@ func (h *handler) Login(c echo.Context) error {
 	}
 
 	c.SetCookie(newCookie(sr.Data.(*SignInResponse)))
-	return c.JSON(response.SuccessWithData(sr).WithHTTPStatus())
+	return c.JSON(sr.WithHTTPStatus())
 }
 
 func (h *handler) CreateUser(c echo.Context) error {

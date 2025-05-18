@@ -7,16 +7,11 @@ import (
 )
 
 type AppConfig struct {
-	Log               Log
 	HttpServer        HttpServer
 	GrpcServer        GrpcServer
 	Crypto            CryptoCredential
 	MongoDB           MongoConfig
 	UserCountInterval time.Duration `env:"USER_COUNT_INTERVAL" envDefault:"10s"`
-}
-
-type Log struct {
-	Level string `env:"LOG_LEVEL"`
 }
 
 type HttpServer struct {

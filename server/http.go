@@ -20,7 +20,7 @@ type HTTP struct {
 
 func NewEchoHTTPServer(ctx context.Context, zlog *zap.Logger, handler user.Handler, cfg *config.AppConfig) *HTTP {
 	server := echo.New()
-	server.Server.Addr =fmt.Sprintf(":%s", cfg.HttpServer.Port)
+	server.Server.Addr = fmt.Sprintf(":%s", cfg.HttpServer.Port)
 	server.Use(echoMiddleware.Recover())
 	server.Use(echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{
 		AllowOrigins: []string{"*"}, // Allow all origins for development
@@ -43,7 +43,6 @@ func NewEchoHTTPServer(ctx context.Context, zlog *zap.Logger, handler user.Handl
 	g.PUT("/users/:id", handler.UpdateUser)
 	// DeleteUser
 	g.DELETE("/users/:id", handler.DeleteUser)
-
 
 	return &HTTP{server: server.Server}
 }

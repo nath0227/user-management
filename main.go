@@ -23,9 +23,6 @@ func main() {
 		panic(err)
 	}
 	zlog := logger.NewZap()
-	if err != nil {
-		panic(err)
-	}
 	defer zlog.Sync()
 
 	mongo := storage.InitMongoConnection(ctx, cfg.MongoDB)
