@@ -75,5 +75,5 @@ func TestIdValidation(t *testing.T) {
 	invalidID := "not_a_valid_id"
 
 	assert.Equal(t, "0000", user.IdValidation(validID).Code)
-	assert.Equal(t, "4003", user.IdValidation(invalidID).Code)
+	assert.Equal(t, "4004", user.IdValidation(invalidID).Code)
 }
