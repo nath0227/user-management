@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -263,5 +264,5 @@ func TestUsecaseGenerateHMAC256Key(t *testing.T) {
 	assert.NoError(t, err)
 
 	secret := base64.StdEncoding.EncodeToString(key)
-	assert.NotEmpty(t, secret)
+	fmt.Println("Generated HMAC256 Key:", secret)
 }

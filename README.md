@@ -20,7 +20,7 @@ Ensure you have the following installed:
 2. Create a `.env` file in the root directory to customize the configuration:
    - `HTTP_SERVER_PORT`: Port for the HTTP server.
    - `GRPC_SERVER_PORT`: Port for the gRPC server.
-   - `CRYPTO_JWT_KEY`: Secret key for signing JWT tokens.
+   - `CRYPTO_JWT_KEY`: Secret key for signing JWT tokens. You can generate a key by running the `TestUsecaseGenerateHMAC256Key` unit test in `usecase_test.go`.
    - `CRYPTO_JWT_EXPIRE_DURATION`: Duration before the JWT token expires.
    - `MONGO_CONFIG_URI`: MongoDB connection string.
    - `MONGO_CONFIG_USERNAME`: MongoDB username (ensure it matches the configuration in `mongo-init/init.js`).
