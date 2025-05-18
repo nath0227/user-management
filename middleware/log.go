@@ -2,38 +2,63 @@ package middleware
 
 import (
 	"bytes"
+	"context"
+	"fmt"
 	"io"
-	"log"
-	"net/http"
 	"time"
+	"user-management/logger"
 
+	"github.com/google/uuid"
 	echo "github.com/labstack/echo/v4"
+	"go.uber.org/zap"
 )
 
-type CustomResponseWriter struct {
-	io.Writer
-	http.ResponseWriter
+func NewLogging(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		requestId := uuid.New().String()
+		zlog := logger.NewZap().With(zap.String("request_id", uuid.New().String()))
+		ctx := context.WithValue(c.Request().Context(), logger.LogContext, zlog)
+		ctx = context.WithValue(ctx, logger.RequestId, requestId)
+		req := c.Request().WithContext(ctx)
+		c.SetRequest(req)
+		return next(c)
+	}
 }
 
-func (w CustomResponseWriter) Write(b []byte) (int, error) {
-	return w.Writer.Write(b)
-}
 func LoggingMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		zlog, err := logger.FromContext(c.Request().Context())
 		start := time.Now()
 		reqBody := new(bytes.Buffer)
 		reqBody.ReadFrom(c.Request().Body)
-		log.Printf("[REQUEST]: %s\n", reqBody.String())
+		zlog.Sugar().With(
+			zap.Any("header", c.Request().Header),
+			zap.Any("body", reqBody.String()),
+		).Infof("[REST API] %s, %s, Request", c.Request().Method, c.Path())
 		c.Request().Body = io.NopCloser(reqBody)
 		resBody := new(bytes.Buffer)
 		multiWriter := io.MultiWriter(c.Response().Writer, resBody)
 		writer := &CustomResponseWriter{Writer: multiWriter, ResponseWriter: c.Response().Writer}
 		c.Response().Writer = writer
-		err := next(c)
-		end := time.Now()
+		err = next(c)
 
-		log.Printf("[RESPONSE]: %s\n", resBody.String())
-		log.Printf("HTTP Method: %s, API path: %s, Latency: %s\n", c.Request().Method, c.Path(), end.Sub(start))
+		httpPayload := logger.HTTPPayload{
+			RequestMethod: c.Request().Method,
+			RequestURL:    c.Request().URL.String(),
+			Status:        c.Response().Status,
+			Latency:       calLatency(start),
+			ResponseSize:  fmt.Sprintf("%d", c.Response().Size),
+		}
+		zlog.Sugar().With(
+			zap.Any("header", c.Response().Header()),
+			zap.Any("body", resBody.String()),
+			zap.Any("httpRequest", httpPayload),
+		).Infof("[REST API] %s, %s, Response", c.Request().Method, c.Path())
 		return err
 	}
+}
+
+func calLatency(t time.Time) (output string) {
+	diff := time.Since(t)
+	return fmt.Sprintf("%.6fs", diff.Seconds())
 }

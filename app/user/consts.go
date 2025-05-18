@@ -1,8 +1,13 @@
 package user
 
+import "errors"
+
 const (
-	ParamID               = "id"
-	EmailAlreadyExists    = "Email already exists"
-	UserOrPasswordIsWrong = "User or password is wrong"
-	UserNotFound          = "User not found"
+	ParamID = "id"
+)
+
+var (
+	ErrEmailAlreadyExists    = errors.New("Email already exists")
+	ErrUserOrPasswordIsWrong = errors.New("User or password is wrong")
+	ErrUserNotFound          = errors.New("User not found")
 )

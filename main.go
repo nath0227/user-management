@@ -2,22 +2,17 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 	"user-management/app/user"
-	usergrpc "user-management/app/user/grpc/gen/go/user/v1"
 	"user-management/config"
-	"user-management/middleware"
+	"user-management/logger"
+	"user-management/server"
 	"user-management/storage"
 
-	echo "github.com/labstack/echo/v4"
-	"google.golang.org/grpc"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -27,79 +22,51 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	zlog := logger.NewZap()
+	defer zlog.Sync()
 
-	mongo := storage.NewMongoConnection(ctx, cfg.MongoDB)
+	mongo := storage.InitMongoConnection(ctx, cfg.MongoDB)
 	defer mongo.Disconnect(ctx)
 
 	repo := user.NewRepository(mongo, cfg.MongoDB)
-	uc := user.NewUsecase(log.Default(), cfg.Crypto, repo)
-	handler := user.NewHandler(log.Default(), uc)
+	uc := user.NewUsecase(cfg.Crypto, repo)
+	handler := user.NewHandler(uc)
 
-	go startRestServer(ctx, handler, cfg)
+	grpcServer, err := server.NewGRPCServer(uc, zlog, cfg)
+	if err != nil {
+		panic(err)
+	}
+	httpServer := server.NewEchoHTTPServer(ctx, zlog, handler, cfg)
+	// Start HTTP server
+	go httpServer.Start()
 	// Start gRPC server
-	go startGrpcServer(repo, cfg)
+	go grpcServer.Start()
 
-	go countTotalUser(ctx, repo)
+	go countTotalUserIntervalTicker(ctx, zlog, repo, cfg.UserCountInterval)
 
 	// =================================== //
-	sigterm := make(chan os.Signal, 1)
-	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	<-ctx.Done() // Wait for termination signal
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	select {
-	case <-ctx.Done():
-		log.Println("terminating: context cancelled")
-	case <-sigterm:
-		log.Println("terminating: via signal")
-	}
+	httpServer.Stop(shutdownCtx)
+	grpcServer.Stop(shutdownCtx)
 }
 
-func countTotalUser(ctx context.Context, repo user.CountUsersRepository) {
+func countTotalUserIntervalTicker(ctx context.Context, zlog *zap.Logger, repo user.CountUsersRepository, internval time.Duration) {
+	ticker := time.NewTicker(internval)
+	defer ticker.Stop()
 	for {
-		time.Sleep(10 * time.Second)
-		count, _ := repo.CountUsers(ctx)
-		log.Printf("User count: %d", count)
-	}
-}
-
-func startRestServer(ctx context.Context, handler user.Handler, cfg *config.AppConfig) {
-	server := echo.New()
-	defer server.Shutdown(ctx)
-	server.Use(middleware.LoggingMiddleware)
-	server.POST("/login", handler.Login)
-
-	g := server.Group("", middleware.JWTMiddleware(cfg.Crypto.JwtKey))
-	//CreateUser
-	g.POST("/register", handler.CreateUser)
-	// FindUsers
-	g.GET("/users", handler.FindUsers)
-	// FindUserById
-	g.GET("/users/:id", handler.FindUserById)
-	// UpdateUser
-	g.PUT("/users/:id", handler.UpdateUser)
-	// DeleteUser
-	g.DELETE("/users/:id", handler.DeleteUser)
-
-	err := server.Start(fmt.Sprintf(":%s", cfg.HttpServer.Port))
-	if err != nil && err != http.ErrServerClosed {
-		log.Panicf("start http server error: %v", err)
-	}
-
-}
-
-func startGrpcServer(repo user.Repository, cfg *config.AppConfig) {
-	usecase := user.NewUsecase(log.Default(), cfg.Crypto, repo)
-	grpcHandler := user.NewGrpcHandler(usecase)
-
-	grpcServer := grpc.NewServer()
-	usergrpc.RegisterUserServiceServer(grpcServer, grpcHandler)
-
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GrpcServer.Port))
-	if err != nil {
-		log.Fatalf("Failed to listen on port %s: %v\n", cfg.GrpcServer.Port, err)
-	}
-
-	log.Printf("Starting gRPC server on port %s...\n", cfg.GrpcServer.Port)
-	if err := grpcServer.Serve(listener); err != nil {
-		log.Fatalf("Failed to serve gRPC server: %v", err)
+		select {
+		case <-ticker.C:
+			count, err := repo.CountUsers(ctx)
+			if err != nil {
+				zlog.Sugar().Errorf("Error getting user count: %v", err)
+			} else {
+				zlog.Sugar().Infof("Current number of users: %d", count)
+			}
+		}
 	}
 }

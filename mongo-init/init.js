@@ -28,6 +28,6 @@ db.users.createIndex(
 db.users.insertOne({
   name: "Admin",
   email: "admin@example.com",
-  password: "$2a$10$jIEILNA1i4e57cjjfopkvOks3z22zZOVMaKvxmZU5V7C9I.9qL3FO", // bcrypt hash 
+  password: "$2a$10$jIEILNA1i4e57cjjfopkvOks3z22zZOVMaKvxmZU5V7C9I.9qL3FO", // bcrypt hash passwordstring
   createdAt: new Date()
 });

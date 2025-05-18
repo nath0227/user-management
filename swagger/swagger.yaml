@@ -1,0 +1,561 @@
+openapi: 3.0.0
+info:
+  title: User Management API
+  description: API documentation for the User Management system.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+paths:
+  /login:
+    post:
+      summary: Login a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: admin@example.com
+                password:
+                  type: string
+                  example: passwordstring
+              required:
+                - email
+                - password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "0000" # Matches response.Success()
+                  message:
+                    type: string
+                    example: Success
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: your_jwt_token
+                      expiresAt:
+                        type: string
+                        format: date-time
+                        example: 2023-12-31T23:59:59Z
+        '400':
+          description: Bad Request - Multiple reasons
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                UnexpectedRequest:
+                  summary: Invalid request
+                  value:
+                    code: "4000"
+                    message: "Unexpected request"
+                MandatoryMissing:
+                  summary: Mandatory field is missing
+                  value:
+                    code: "4001"
+                    message: "name is required"
+                LoginFailed:
+                  summary: Login failed
+                  value:
+                    code: "4003"
+                    message: "Login failed"
+                InvalidData:
+                  summary: Invalid data
+                  value:
+                    code: "4004"
+                    message: "email is invalid data"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "4006" # Matches response.Unauthorized()
+                  message:
+                    type: string
+                    example: Invalid authentication token
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "5000" # Matches response.InternalServerError()
+                  message:
+                    type: string
+                    example: Internal server error
+  /register:
+    post:
+      summary: Register a new user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  example: john.doe@example.com
+                password:
+                  type: string
+                  example: password123
+              required:
+                - name
+                - email
+                - password
+      responses:
+        '200':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "0000" # Matches response.Success()
+                  message:
+                    type: string
+                    example: Success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: 60d5ec49f1f1c939b4f2f0c2
+        '400':
+          description: Bad Request - Multiple reasons
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                UnexpectedRequest:
+                  summary: Invalid request
+                  value:
+                    code: "4000"
+                    message: "Unexpected request"
+                MandatoryMissing:
+                  summary: Mandatory field is missing
+                  value:
+                    code: "4001"
+                    message: "name is required"
+                DuplicatedRegistration:
+                  summary: Duplicated registration
+                  value:
+                    code: "4002"
+                    message: "An email has already been used"
+                InvalidData:
+                  summary: Invalid data
+                  value:
+                    code: "4004"
+                    message: "email is invalid data"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "4006" # Matches response.Unauthorized()
+                  message:
+                    type: string
+                    example: Invalid authentication token
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "5000" # Matches response.InternalServerError()
+                  message:
+                    type: string
+                    example: Internal server error
+  /users:
+    get:
+      summary: Get all users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "0000" # Matches response.Success()
+                  message:
+                    type: string
+                    example: Success
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: 60d5ec49f1f1c939b4f2f0c2
+                        name:
+                          type: string
+                          example: John Doe
+                        email:
+                          type: string
+                          example: john.doe@example.com
+              examples:
+                OneUser:
+                  summary: Single user example
+                  value:
+                    data:
+                      - id: "60d5ec49f1f1c939b4f2f0c2"
+                        name: "John Doe"
+                        email: "john.doe@example.com"
+                MultipleUsers:
+                  summary: Multiple users
+                  value:
+                    data:
+                      - id: "60d5ec49f1f1c939b4f2f0c2"
+                        name: "John Doe"
+                        email: "john.doe@example.com"
+                      - id: "60d5ec49f1f1c939b4f2f0c3"
+                        name: "Jane Doe"
+                        email: "jane.doe@example.com"
+                      - id: "60d5ec49f1f1c939b4f2f0c4"
+                        name: "Alice"
+                        email: "alice@example.com"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "4006" # Matches response.Unauthorized()
+                  message:
+                    type: string
+                    example: Invalid authentication token
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "5000" # Matches response.InternalServerError()
+                  message:
+                    type: string
+                    example: Internal server error
+  /users/{id}:
+    get:
+      summary: Get user by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the user to retrieve
+      responses:
+        '200':
+          description: User details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "0000" # Matches response.Success()
+                  message:
+                    type: string
+                    example: Success
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: 60d5ec49f1f1c939b4f2f0c2
+                      name:
+                        type: string
+                        example: John Doe
+                      email:
+                        type: string
+                        example: john.doe@example.com
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                InvalidData:
+                  summary: Invalid data
+                  value:
+                    code: "4004"
+                    message: "id is invalid data"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "4006" # Matches response.Unauthorized()
+                  message:
+                    type: string
+                    example: Invalid authentication token
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "4005" # Matches response.NotFound()
+                  message:
+                    type: string
+                    example: User not found
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "5000" # Matches response.InternalServerError()
+                  message:
+                    type: string
+                    example: Internal server error
+    put:
+      summary: Update user details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the user to be updated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Updated Name
+                email:
+                  type: string
+                  example: updated@example.com
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "0000" # Matches response.Success()
+                  message:
+                    type: string
+                    example: Success
+        '400':
+          description: Bad Request - Multiple reasons
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                UnexpectedRequest:
+                  summary: Invalid request
+                  value:
+                    code: "4000"
+                    message: "Unexpected request"
+                MandatoryMissing:
+                  summary: Mandatory field is missing
+                  value:
+                    code: "4001"
+                    message: "name or email is required"
+                DuplicatedRegistration:
+                  summary: Duplicated registration
+                  value:
+                    code: "4002"
+                    message: "An email has already been used"
+                InvalidData:
+                  summary: Invalid data
+                  value:
+                    code: "4004"
+                    message: "email is invalid data"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "4006" # Matches response.Unauthorized()
+                  message:
+                    type: string
+                    example: Invalid authentication token
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "4005" # Matches response.NotFound()
+                  message:
+                    type: string
+                    example: User not found
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "5000" # Matches response.InternalServerError()
+                  message:
+                    type: string
+                    example: Internal server error
+    delete:
+      summary: Delete a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the user to be deleted
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "0000" # Matches response.Success()
+                  message:
+                    type: string
+                    example: Success
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                InvalidData:
+                  summary: Invalid data
+                  value:
+                    code: "4004"
+                    message: "id is invalid data"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "4004" # Matches response.Unauthorized()
+                  message:
+                    type: string
+                    example: Unauthorized
+                  data:
+                    type: object
+                    nullable: true
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "4005" # Matches response.NotFound()
+                  message:
+                    type: string
+                    example: User not found
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "5000" # Matches response.InternalServerError()
+                  message:
+                    type: string
+                    example: Internal server error
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

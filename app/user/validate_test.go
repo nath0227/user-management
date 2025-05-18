@@ -12,14 +12,14 @@ import (
 func TestUser_RequestValidation(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    user.User
+		input    user.CreateRequest
 		wantCode *response.StdResp[any]
 	}{
-		{"Valid input 1", user.User{Name: "Alice", Email: "alice@example.com", Password: "pass123"}, response.Success()},
-		{"Missing name", user.User{Email: "alice@example.com", Password: "pass123"}, response.MandatoryMissing("name")},
-		{"Valid input 1", user.User{Name: "Alice", Password: "pass123"}, response.MandatoryMissing("email")},
-		{"Invalid email", user.User{Name: "Alice", Email: "bad-email", Password: "pass123"}, response.InvalidData("email")},
-		{"Missing password", user.User{Name: "Alice", Email: "alice@example.com"}, response.MandatoryMissing("password")},
+		{"Valid input 1", user.CreateRequest{Name: "Alice", Email: "alice@example.com", Password: "pass123"}, response.Success()},
+		{"Missing name", user.CreateRequest{Email: "alice@example.com", Password: "pass123"}, response.MandatoryMissing("name")},
+		{"Valid input 1", user.CreateRequest{Name: "Alice", Password: "pass123"}, response.MandatoryMissing("email")},
+		{"Invalid email", user.CreateRequest{Name: "Alice", Email: "bad-email", Password: "pass123"}, response.InvalidData("email")},
+		{"Missing password", user.CreateRequest{Name: "Alice", Email: "alice@example.com"}, response.MandatoryMissing("password")},
 	}
 
 	for _, tt := range tests {
@@ -75,5 +75,5 @@ func TestIdValidation(t *testing.T) {
 	invalidID := "not_a_valid_id"
 
 	assert.Equal(t, "0000", user.IdValidation(validID).Code)
-	assert.Equal(t, "4003", user.IdValidation(invalidID).Code)
+	assert.Equal(t, "4004", user.IdValidation(invalidID).Code)
 }

@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"time"
 	usergrpc "user-management/app/user/grpc/gen/go/user/v1"
 	"user-management/response"
 )
@@ -15,21 +16,28 @@ func NewGrpcHandler(u Usecase) *GrpcHandler {
 }
 
 func (h *GrpcHandler) CreateUser(ctx context.Context, req *usergrpc.CreateUserRequest) (*usergrpc.CreateUserResponse, error) {
-	user := User{
+	request := CreateRequest{
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: req.Password,
 	}
+	if resp := request.RequestValidation(); !resp.IsSuccess() {
+		return &usergrpc.CreateUserResponse{
+			Code:    resp.Code,
+			Message: resp.Message,
+		}, nil
+	}
 
-	resp, err := h.usecase.CreateUser(ctx, user)
+	resp, err := h.usecase.CreateUser(ctx, request)
 	if err != nil {
-		if err.Error() == EmailAlreadyExists {
-			return &usergrpc.CreateUserResponse{
-				Code:    response.DuplicatedRegistration().Code,
-				Message: response.DuplicatedRegistration().Message,
-			}, nil
-		}
 		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return &usergrpc.CreateUserResponse{
+			Code:    resp.Code,
+			Message: resp.Message,
+		}, nil
 	}
 
 	return &usergrpc.CreateUserResponse{
@@ -53,7 +61,10 @@ func (h *GrpcHandler) GetUser(ctx context.Context, req *usergrpc.GetUserRequest)
 
 	resp, err := h.usecase.FindUserById(ctx, req.Id)
 	if err != nil {
-		return nil, err
+		return &usergrpc.GetUserResponse{
+			Code:    response.InternalServerError().Code,
+			Message: response.InternalServerError().Message,
+		}, err
 	}
 	if !resp.IsSuccess() {
 		return &usergrpc.GetUserResponse{
@@ -62,14 +73,15 @@ func (h *GrpcHandler) GetUser(ctx context.Context, req *usergrpc.GetUserRequest)
 		}, nil
 	}
 
-	user := resp.Data.(User)
+	user := resp.Data.(FindUserResponse)
 	return &usergrpc.GetUserResponse{
 		Code:    response.Success().Code,
 		Message: response.Success().Message,
 		Data: &usergrpc.GetUserResponse_Data{
-			Id:    user.ID.Hex(),
+			Id:    user.Id,
 			Name:  user.Name,
 			Email: user.Email,
+			CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil
 }

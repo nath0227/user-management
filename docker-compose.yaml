@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mongo:
     image: mongo:7
@@ -13,6 +11,7 @@ services:
       - MONGO_INITDB_DATABASE=myapp
       - MONGO_INITDB_ROOT_USERNAME=root
       - MONGO_INITDB_ROOT_PASSWORD=root
+      - TZ=Asia/Bangkok # Set timezone to Bangkok
     networks:
       - appnet
 
@@ -20,16 +19,24 @@ services:
     build: .
     env_file:
       - .env
-    container_name: go-app
+    container_name: app-user-management
     restart: always
     depends_on:
       - mongo
     ports:
       - "8080:8080"
-    environment:
-      MONGO_URI: mongodb://mongo:27017
+      - "50051:50051"
     networks:
       - appnet
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    ports:
+      - "8081:8080"
+    environment:
+      SWAGGER_JSON: /docs/swagger.yaml
+    volumes:
+      - ./swagger:/docs
 
 networks:
   appnet:

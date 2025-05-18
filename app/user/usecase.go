@@ -2,7 +2,7 @@ package user
 
 import (
 	"context"
-	"log"
+	"errors"
 	"time"
 	"user-management/config"
 	"user-management/response"
@@ -14,34 +14,39 @@ import (
 type Repository interface {
 	CreateUser(ctx context.Context, user User) (string, error)
 	FindUserByEmail(ctx context.Context, email string) (User, error)
-	FindUserById(ctx context.Context, id string) (User, error)
-	FindUsers(ctx context.Context) ([]User, error)
-	UpdateUser(ctx context.Context, user User) error
+	FindUserById(ctx context.Context, id string) (FindUserResponse, error)
+	FindUsers(ctx context.Context) ([]FindUserResponse, error)
+	UpdateUser(ctx context.Context, user User) (int64, error)
 	DeleteUser(ctx context.Context, id string) (int64, error)
 }
 
 type usecase struct {
-	logger    *log.Logger
 	cfgCrypto config.CryptoCredential
 	repo      Repository
 }
 
-func NewUsecase(logger *log.Logger, cfg config.CryptoCredential, r Repository) *usecase {
+func NewUsecase(cfg config.CryptoCredential, r Repository) *usecase {
 	return &usecase{
-		logger:    logger,
 		cfgCrypto: cfg,
 		repo:      r,
 	}
 }
 
-func (u *usecase) CreateUser(ctx context.Context, req User) (*response.StdResp[any], error) {
+func (u *usecase) CreateUser(ctx context.Context, req CreateRequest) (*response.StdResp[any], error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
-	req.Password = string(hashedPassword)
-	uid, err := u.repo.CreateUser(ctx, req)
+
+	uid, err := u.repo.CreateUser(ctx, User{
+		Name:     req.Name,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+	})
 	if err != nil {
+		if errors.Is(err, ErrEmailAlreadyExists) {
+			return response.DuplicatedRegistration(), nil
+		}
 		return nil, err
 	}
 	return response.SuccessWithData(CreateResponse{uid}), nil
@@ -50,6 +55,9 @@ func (u *usecase) CreateUser(ctx context.Context, req User) (*response.StdResp[a
 func (u *usecase) Login(ctx context.Context, req SignInRequest) (*response.StdResp[any], error) {
 	result, err := u.repo.FindUserByEmail(ctx, req.Email)
 	if err != nil {
+		if errors.Is(err, ErrUserOrPasswordIsWrong) {
+			return response.LoginFail(), nil
+		}
 		return nil, err
 	}
 
@@ -60,7 +68,7 @@ func (u *usecase) Login(ctx context.Context, req SignInRequest) (*response.StdRe
 	expAt := time.Now().Add(u.cfgCrypto.JwtExpireDuration)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		jwt.RegisteredClaims{
-			Issuer:    req.Email,
+			Subject:   result.Email,
 			ExpiresAt: jwt.NewNumericDate(expAt),
 		},
 	)
@@ -86,7 +94,7 @@ func (u *usecase) FindUsers(ctx context.Context) (*response.StdResp[any], error)
 func (u *usecase) FindUserById(ctx context.Context, id string) (*response.StdResp[any], error) {
 	user, err := u.repo.FindUserById(ctx, id)
 	if err != nil {
-		if err.Error() == UserNotFound {
+		if errors.Is(err, ErrUserNotFound) {
 			return response.UserNotFound(), nil
 		}
 		return nil, err
@@ -95,12 +103,15 @@ func (u *usecase) FindUserById(ctx context.Context, id string) (*response.StdRes
 }
 
 func (u *usecase) UpdateUser(ctx context.Context, user User) (*response.StdResp[any], error) {
-	err := u.repo.UpdateUser(ctx, user)
+	updateCount, err := u.repo.UpdateUser(ctx, user)
 	if err != nil {
-		if err.Error() == EmailAlreadyExists {
+		if errors.Is(err, ErrEmailAlreadyExists) {
 			return response.DuplicatedRegistration(), nil
 		}
 		return nil, err
+	}
+	if updateCount == 0 {
+		return response.UserNotFound(), nil
 	}
 	return response.Success(), err
 }

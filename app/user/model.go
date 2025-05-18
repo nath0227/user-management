@@ -24,8 +24,21 @@ type SignInResponse struct {
 	ExpiresAt time.Time `json:"expire_at"`
 }
 
+type CreateRequest struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 type CreateResponse struct {
 	Id string `json:"id"`
+}
+
+type FindUserResponse struct {
+	Id        string `bson:"_id" json:"id"`
+	Name      string `bson:"name" json:"name"`
+	Email     string `bson:"email" json:"email"`
+	CreatedAt time.Time `bson:"created_at" json:"created_at"`
 }
 
 type UpdateRequest struct {
